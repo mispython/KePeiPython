@@ -7,6 +7,11 @@ DATA REPTDATE (KEEP=REPTDATE);
   CALL SYMPUT('REPTDATE', PUT(REPTDATE, DDMMYY8.));
 RUN;
 
+/***********************/
+batch_date = datetime.date.today() - datetime.timedelta(days=1)
+
+/*********************************/
+
 OPTIONS YEARCUTOFF=1930 NOCENTER NODATE;
 
    /*  CTCS  */
