@@ -40,6 +40,31 @@ DATA _NULL_;
    END;
 RUN;
 
+/*******************************************/
+DATA _NULL_;
+  INFILE TXTFILE OBS=1;
+  INPUT @003  YY   4.
+        @007  MM   2.
+        @009  DD   2.;
+  TDATE=MDY(MM,DD,YY)-1;
+  CALL SYMPUT('FILEDAY',  PUT(DAY(TDATE),Z2.));
+  CALL SYMPUT('FILEMON',  PUT(MONTH(TDATE),Z2.));
+  CALL SYMPUT('FILEYEAR', PUT(TDATE,YEAR2.));
+  CALL SYMPUT('FILEDATE', PUT(TDATE, DDMMYY8.));
+RUN;
+
+DATA _NULL_;
+   IF "&FILEDATE" NE "&REPTDATE" THEN DO;
+      PUT "THE SAP.PBB.EPCU.CTCS IS NOT DATED &REPTDATE";
+      ABORT 77;
+   END;
+RUN;
+
+/*************************************************/
+
+
+
+
 DATA CTCS(DROP=CHECK);
  INFILE TXTFILE MISSOVER FIRSTOBS=2;
  INPUT @001  CHECK $5. @;
