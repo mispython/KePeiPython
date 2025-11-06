@@ -285,3 +285,14 @@ Traceback (most recent call last):
   File "/pythonITD/mis_dev/lib64/python3.9/site-packages/polars/lazyframe/frame.py", line 2335, in collect
     return wrap_df(ldf.collect(engine, callback))
 polars.exceptions.InvalidOperationError: conversion from `str` to `i64` failed in column 'line' for 1 out of 1 values: [""]
+
+
+
+
+Error processing CTCS file: 'ExprStringNameSpace' object has no attribute 'strip'
+Traceback (most recent call last):
+  File "/pythonITD/mis_dev/sas_migration/CTCS/EIBWCTCS.py", line 175, in <module>
+    append_macro()
+  File "/pythonITD/mis_dev/sas_migration/CTCS/EIBWCTCS.py", line 162, in append_macro
+    if os.path.exists(output_file):
+NameError: name 'os' is not defined
