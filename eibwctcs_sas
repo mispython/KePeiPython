@@ -121,3 +121,53 @@ RUN;
    %END;
 %MEND APPEND;
 %APPEND;
+
+/*************************************************************/
+
+# Process CTCS data
+def process_ctcs():
+    df_ctcs = (
+        pl.read_csv("TXTFILE.txt", has_header=False, skip_rows=1, new_columns=["line"])
+        .with_columns(pl.col("line").str.slice(0, 5).alias("CHECK"))
+        .filter(pl.col("CHECK") != "TOTAL")
+        .with_columns([
+            pl.col("line").str.slice(8, 8).str.strptime(pl.Date, "%Y%m%d").alias("TRANDT"),
+            pl.col("line").str.slice(17, 10).cast(pl.Int64).alias("ACCTNO"),
+            pl.col("line").str.slice(28, 5).cast(pl.Int64).alias("NOTENO"),
+            pl.col("line").str.slice(34, 6).cast(pl.Int64).alias("CHEQNO"),
+            pl.col("line").str.slice(41, 10).cast(pl.Float64).alias("TRANAMT"),
+            pl.col("line").str.slice(52, 2).alias("IND"),
+            pl.col("line").str.slice(55, 1).alias("PRODIND"),
+            pl.col("line").str.slice(57, 2).alias("TRANCD"),
+            pl.lit(int(RDATE)).alias("REPTDATE")
+        ])
+        .drop("CHECK")
+    )
+    return df_ctcs
+
+# Append macro equivalent
+def append_macro():
+    df_ctcs = process_ctcs()
+    output_file = f"CTCS/CTCS{FILEMON}.parquet"
+    
+    if FILEDAY == "08":  # 1ST WEEK
+        # Create new monthly file
+        df_ctcs.write_parquet(output_file)
+        print(f"Created new monthly file: {output_file}")
+    else:
+        if os.path.exists(output_file):
+            # Read existing, remove duplicates, and append
+            df_existing = pl.read_parquet(output_file)
+            df_existing = df_existing.filter(pl.col("REPTDATE") != int(RDATE))
+            df_combined = pl.concat([df_ctcs, df_existing])
+            df_combined.write_parquet(output_file)
+            print(f"Appended data to existing file: {output_file}")
+        else:
+            # File doesn't exist, create new one
+            df_ctcs.write_parquet(output_file)
+            print(f"Created new file (not 8th): {output_file}")
+
+# Execute
+append_macro()
+
+/**************************************************************/
