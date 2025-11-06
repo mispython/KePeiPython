@@ -41,25 +41,46 @@ DATA _NULL_;
 RUN;
 
 /*******************************************/
-DATA _NULL_;
-  INFILE TXTFILE OBS=1;
-  INPUT @003  YY   4.
-        @007  MM   2.
-        @009  DD   2.;
-  TDATE=MDY(MM,DD,YY)-1;
-  CALL SYMPUT('FILEDAY',  PUT(DAY(TDATE),Z2.));
-  CALL SYMPUT('FILEMON',  PUT(MONTH(TDATE),Z2.));
-  CALL SYMPUT('FILEYEAR', PUT(TDATE,YEAR2.));
-  CALL SYMPUT('FILEDATE', PUT(TDATE, DDMMYY8.));
-RUN;
+import polars as pl
+import datetime
 
-DATA _NULL_;
-   IF "&FILEDATE" NE "&REPTDATE" THEN DO;
-      PUT "THE SAP.PBB.EPCU.CTCS IS NOT DATED &REPTDATE";
-      ABORT 77;
-   END;
-RUN;
+# First part: Read and process TXTFILE
+# Read first row of text file with fixed width positions
+df_txt = pl.read_csv(
+    "TXTFILE",
+    has_header=False,
+    skip_rows=0,
+    n_rows=1,
+    new_columns=["line"]
+)
 
+# Extract fields using string slicing (equivalent to @ position in SAS)
+first_line = df_txt["line"][0]
+YY = int(first_line[2:6])    # @003 4. (positions 3-6, 0-indexed)
+MM = int(first_line[6:8])    # @007 2. (positions 7-8)
+DD = int(first_line[8:10])   # @009 2. (positions 9-10)
+
+# Calculate TDATE (MDY(MM,DD,YY)-1)
+TDATE = datetime.date(YY, MM, DD) - datetime.timedelta(days=1)
+
+# Create equivalent macro variables
+FILEDAY = TDATE.strftime('%d')      # PUT(DAY(TDATE),Z2.)
+FILEMON = TDATE.strftime('%m')      # PUT(MONTH(TDATE),Z2.)
+FILEYEAR = TDATE.strftime('%y')     # PUT(TDATE,YEAR2.)
+FILEDATE = TDATE.strftime('%d%m%y') # PUT(TDATE,DDMMYY8.)
+
+print(f"FILEDAY: {FILEDAY}")
+print(f"FILEMON: {FILEMON}")
+print(f"FILEYEAR: {FILEYEAR}")
+print(f"FILEDATE: {FILEDATE}")
+
+# Second part: Validation check
+if FILEDATE != REPTDATE:
+    print(f"THE SAP.PBB.EPCU.CTCS IS NOT DATED {REPTDATE}")
+    # Equivalent to ABORT 77 - exit with error code
+    exit(77)
+else:
+    print("Date validation passed - files match")
 /*************************************************/
 
 
