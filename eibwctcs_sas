@@ -170,6 +170,102 @@ def append_macro():
 # Execute
 append_macro()
 
+
+
+/* new update */
+import polars as pl
+import datetime
+
+def process_ctcs():
+    try:
+        # First, read the file and check for empty lines
+        df_raw = pl.read_csv(
+            ctcs_path,
+            has_header=False,
+            skip_rows=1,
+            new_columns=["line"]
+        )
+        
+        # Filter out empty lines first
+        df_filtered = df_raw.filter(
+            pl.col("line").str.strip_chars().str.len_chars() > 0
+        )
+        
+        # Add CHECK column and filter out 'TOTAL'
+        df_with_check = df_filtered.with_columns([
+            pl.col("line").str.slice(0, 5).alias("CHECK")
+        ]).filter(
+            pl.col("CHECK") != "TOTAL"
+        )
+        
+        # Check if we have any data left
+        if df_with_check.height == 0:
+            print("No valid data found after filtering")
+            return None
+        
+        # Process the data with proper error handling
+        df_processed = df_with_check.with_columns([
+            # TRANDT - handle date parsing errors
+            pl.col("line").str.slice(8, 8).str.strptime(
+                pl.Date, "%Y%m%d", strict=False
+            ).alias("TRANDT"),
+            
+            # ACCTNO - handle conversion errors
+            pl.col("line").str.slice(17, 10).str.strip().cast(
+                pl.Int64, strict=False
+            ).alias("ACCTNO"),
+            
+            # NOTENO - handle conversion errors
+            pl.col("line").str.slice(28, 5).str.strip().cast(
+                pl.Int64, strict=False
+            ).alias("NOTENO"),
+            
+            # CHEQNO - handle conversion errors
+            pl.col("line").str.slice(34, 6).str.strip().cast(
+                pl.Int64, strict=False
+            ).alias("CHEQNO"),
+            
+            # TRANAMT - handle float conversion
+            pl.col("line").str.slice(41, 10).str.strip().cast(
+                pl.Float64, strict=False
+            ).alias("TRANAMT"),
+            
+            # String columns - no conversion needed
+            pl.col("line").str.slice(52, 2).str.strip().alias("IND"),
+            pl.col("line").str.slice(55, 1).str.strip().alias("PRODIND"),
+            pl.col("line").str.slice(57, 2).str.strip().alias("TRANCD"),
+            
+            # REPTDATE
+            pl.lit(int(RDATE)).alias("REPTDATE")
+        ]).drop("CHECK")
+        
+        print(f"Successfully processed {df_processed.height} records")
+        return df_processed
+        
+    except Exception as e:
+        print(f"Error processing CTCS file: {e}")
+        return None
+
+# Also, let's add debug info to see what's in the file
+def debug_file_content():
+    """Debug function to see actual file content"""
+    try:
+        with open(ctcs_path, 'r') as file:
+            lines = file.readlines()
+            print(f"File has {len(lines)} total lines")
+            print("First 10 lines:")
+            for i, line in enumerate(lines[:10]):
+                print(f"Line {i+1}: {repr(line)}")
+    except Exception as e:
+        print(f"Error reading file: {e}")
+
+# Run debug first to see what's in the file
+debug_file_content()
+
+# Then process
+df_ctcs = process_ctcs()
+
+
 /**************************************************************/
 
 /* error */
