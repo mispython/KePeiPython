@@ -10,6 +10,9 @@ RUN;
 /***********************/
 batch_date = datetime.date.today() - datetime.timedelta(days=1)
 RDATE = f"{batch_date.timetuple().tm_yday:05d}"
+REPTDATE = batch_date.strftime('%d%m%y')
+
+print(f"REPTDATE: {REPTDATE}")
 
 print(f"batch_date: {batch_date}")
 print(f"RDATE: {RDATE}")
