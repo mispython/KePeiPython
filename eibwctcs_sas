@@ -171,3 +171,21 @@ def append_macro():
 append_macro()
 
 /**************************************************************/
+
+/* error */
+Traceback (most recent call last):
+  File "/pythonITD/mis_dev/sas_migration/CTCS/EIBWCTCS.py", line 124, in <module>
+    append_macro()
+  File "/pythonITD/mis_dev/sas_migration/CTCS/EIBWCTCS.py", line 103, in append_macro
+    df_ctcs = process_ctcs()
+  File "/pythonITD/mis_dev/sas_migration/CTCS/EIBWCTCS.py", line 83, in process_ctcs
+    pl.read_csv(ctcs_path, has_header=False, skip_rows=1, new_columns=["line"])
+  File "/pythonITD/mis_dev/lib64/python3.9/site-packages/polars/dataframe/frame.py", line 10020, in with_columns
+    self.lazy()
+  File "/pythonITD/mis_dev/lib64/python3.9/site-packages/polars/_utils/deprecation.py", line 97, in wrapper
+    return function(*args, **kwargs)
+  File "/pythonITD/mis_dev/lib64/python3.9/site-packages/polars/lazyframe/opt_flags.py", line 330, in wrapper
+    return function(*args, **kwargs)
+  File "/pythonITD/mis_dev/lib64/python3.9/site-packages/polars/lazyframe/frame.py", line 2335, in collect
+    return wrap_df(ldf.collect(engine, callback))
+polars.exceptions.InvalidOperationError: conversion from `str` to `i64` failed in column 'line' for 1 out of 1 values: [""]
