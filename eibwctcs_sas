@@ -9,7 +9,10 @@ RUN;
 
 /***********************/
 batch_date = datetime.date.today() - datetime.timedelta(days=1)
+RDATE = f"{batch_date.timetuple().tm_yday:05d}"
 
+print(f"batch_date: {batch_date}")
+print(f"RDATE: {RDATE}")
 /*********************************/
 
 OPTIONS YEARCUTOFF=1930 NOCENTER NODATE;
