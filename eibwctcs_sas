@@ -266,6 +266,106 @@ debug_file_content()
 df_ctcs = process_ctcs()
 
 
+
+
+
+import os
+import polars as pl
+import datetime
+
+# Your variables (make sure these are defined)
+# ctcs_path = "your_file_path.txt"
+# RDATE = "your_rdate" 
+# FILEDAY = "your_fileday"
+# FILEMON = "your_filemon"
+
+def process_ctcs():
+    try:
+        print("DEBUG: Reading CTCS file...")
+        # Read the file
+        df_raw = pl.read_csv(
+            ctcs_path,
+            has_header=False,
+            skip_rows=1,
+            new_columns=["line"]
+        )
+        
+        print(f"DEBUG: Read {df_raw.height} raw lines")
+        
+        # Filter out empty lines
+        df_filtered = df_raw.filter(pl.col("line").str.len_chars() > 0)
+        print(f"DEBUG: {df_filtered.height} lines after empty filter")
+        
+        # Add CHECK column and filter out 'TOTAL'
+        df_with_check = df_filtered.with_columns([
+            pl.col("line").str.slice(0, 5).alias("CHECK")
+        ]).filter(pl.col("CHECK") != "TOTAL")
+        
+        print(f"DEBUG: {df_with_check.height} lines after TOTAL filter")
+        
+        if df_with_check.height == 0:
+            print("No valid data found after filtering")
+            return None
+        
+        # Process data - USING CORRECT POLARS STRING METHODS
+        df_processed = df_with_check.with_columns([
+            # TRANDT - using strptime with strict=False
+            pl.col("line").str.slice(8, 8).str.strptime(pl.Date, "%Y%m%d", strict=False).alias("TRANDT"),
+            
+            # Numeric columns - using strip_chars() and strict=False
+            pl.col("line").str.slice(17, 10).str.strip_chars().cast(pl.Int64, strict=False).alias("ACCTNO"),
+            pl.col("line").str.slice(28, 5).str.strip_chars().cast(pl.Int64, strict=False).alias("NOTENO"),
+            pl.col("line").str.slice(34, 6).str.strip_chars().cast(pl.Int64, strict=False).alias("CHEQNO"),
+            pl.col("line").str.slice(41, 10).str.strip_chars().cast(pl.Float64, strict=False).alias("TRANAMT"),
+            
+            # String columns - using strip_chars() instead of strip()
+            pl.col("line").str.slice(52, 2).str.strip_chars().alias("IND"),
+            pl.col("line").str.slice(55, 1).str.strip_chars().alias("PRODIND"),
+            pl.col("line").str.slice(57, 2).str.strip_chars().alias("TRANCD"),
+            
+            # REPTDATE
+            pl.lit(int(RDATE)).alias("REPTDATE")
+        ]).drop("CHECK")
+        
+        print(f"DEBUG: Successfully processed {df_processed.height} records")
+        print(f"DEBUG: Columns: {df_processed.columns}")
+        return df_processed
+        
+    except Exception as e:
+        print(f"Error processing CTCS file: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+def append_macro():
+    print("DEBUG: Starting append_macro")
+    
+    df_ctcs = process_ctcs()
+    if df_ctcs is None:
+        print("No data to process")
+        return
+        
+    output_file = f"CTCS/CTCS{FILEMON}.parquet"
+    print(f"DEBUG: Output file: {output_file}")
+    
+    # This should now work since we imported os
+    if os.path.exists(output_file):
+        print("DEBUG: File exists - appending mode")
+        df_existing = pl.read_parquet(output_file)
+        df_existing = df_existing.filter(pl.col("REPTDATE") != int(RDATE))
+        df_combined = pl.concat([df_ctcs, df_existing])
+        df_combined.write_parquet(output_file)
+        print(f"Appended data to existing file: {output_file}")
+    else:
+        print("DEBUG: File does not exist - creating new")
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        df_ctcs.write_parquet(output_file)
+        print(f"Created new monthly file: {output_file}")
+
+# Execute
+append_macro()
+
 /**************************************************************/
 
 /* error */
