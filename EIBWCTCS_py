@@ -163,3 +163,53 @@ def append_macro():
 
 # Execute
 append_macro()
+
+
+#output to sas7bdat
+import saspy
+import polars as pl
+import os
+
+def append_macro():
+    df_ctcs = process_ctcs()
+    output_file = f"/pythonITD/mis_dev/output/sas/CTCS_{REPTMON}.sas7bdat"
+    
+    # Ensure output directory exists
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    
+    # Initialize SAS session
+    sas = saspy.SASsession()
+    
+    if REPTMON == "08":  # 1ST WEEK
+        # Create new monthly file
+        final_df = df_ctcs
+    else:
+        if os.path.exists(output_file):
+            try:
+                # Read existing SAS file using saspy
+                existing_sas = sas.sasdata2dataframe(f"CTCS_{REPTMON}", libref='your_lib')
+                df_existing = pl.from_pandas(existing_sas)
+                
+                # Remove duplicates and combine (all in Polars)
+                df_existing = df_existing.filter(pl.col("REPTDATE") != int(RDATE))
+                final_df = pl.concat([df_ctcs, df_existing])
+                
+                print(f"Appended data to existing SAS file: {output_file}")
+            except Exception as e:
+                print(f"Error reading existing SAS file: {e}")
+                final_df = df_ctcs
+                print(f"Using only new data due to read error: {output_file}")
+        else:
+            # File doesn't exist, use current data
+            final_df = df_ctcs
+            print(f"Created new SAS file (not 8th): {output_file}")
+    
+    # Write final result to SAS
+    pandas_final = final_df.to_pandas()
+    sas.df2sd(pandas_final, output_file)
+    
+    # Close SAS session
+    sas.endsas()
+
+# Execute
+append_macro()
