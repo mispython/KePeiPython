@@ -213,3 +213,12 @@ def append_macro():
 
 # Execute
 append_macro()
+
+
+
+# error
+Created new SAS file (not 8th): /sas/python/virt_edw/Data_Warehouse/MIS/Job/CTCS/Output/CTCS_10.sas7bdat
+error occured in SAS during data transfer. Check the LOG for issues.
+/sas/python/virt_edw_dev/lib64/python3.9/site-packages/saspy/sasiostdio.py:1118: UserWarning: Noticed 'ERROR:' in LOG, you ought to take a look and see if there was a problem
+  warnings.warn("Noticed 'ERROR:' in LOG, you ought to take a look and see if there was a problem")
+SAS Connection terminated. Subprocess id was 250021
