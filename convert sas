@@ -1,0 +1,2 @@
+query = f"SELECT * FROM read_parquet('{SUMM1_parquet}')"
+summ1 = pl.from_pandas(duckdb.query(query).to_df())
