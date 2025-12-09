@@ -1,2 +1,147 @@
 query = f"SELECT * FROM read_parquet('{SUMM1_parquet}')"
 summ1 = pl.from_pandas(duckdb.query(query).to_df())
+
+
+import polars as pl
+import saspy
+import os
+import pandas as pd
+
+def diagnose_sas_save(parquet_file, library_path, dataset_name="users"):
+    """Complete diagnosis of SAS save issues"""
+    
+    print("=" * 60)
+    print("SAS DATA SAVE DIAGNOSTICS")
+    print("=" * 60)
+    
+    # 1. Read data
+    print(f"\n1. READING DATA from {parquet_file}")
+    df_pl = pl.read_parquet(parquet_file)
+    df_pd = df_pl.to_pandas()
+    print(f"   ✓ Read {len(df_pd)} rows, {len(df_pd.columns)} columns")
+    
+    # 2. Check file system
+    print(f"\n2. FILE SYSTEM CHECK for {library_path}")
+    print(f"   Path exists: {os.path.exists(library_path)}")
+    if os.path.exists(library_path):
+        print(f"   Is directory: {os.path.isdir(library_path)}")
+        print(f"   Is writable: {os.access(library_path, os.W_OK)}")
+        
+        # List existing SAS files
+        import glob
+        sas_files = glob.glob(os.path.join(library_path, "*.sas7bdat"))
+        print(f"   Existing .sas7bdat files: {len(sas_files)}")
+        for f in sas_files[:5]:  # Show first 5
+            print(f"     - {os.path.basename(f)}")
+        if len(sas_files) > 5:
+            print(f"     ... and {len(sas_files) - 5} more")
+    else:
+        print(f"   ⚠ Directory does not exist!")
+    
+    # 3. Connect to SAS
+    print(f"\n3. CONNECTING TO SAS")
+    try:
+        sas = saspy.SASsession()
+        print(f"   ✓ Connected to SAS {sas.sas_version()}")
+    except Exception as e:
+        print(f"   ✗ Failed to connect: {e}")
+        return
+    
+    # 4. Define library
+    print(f"\n4. DEFINING LIBRARY")
+    lib_def = sas.submit(f"""
+        libname DIAG "{library_path}";
+        
+        /* Check if library was created */
+        data _null_;
+            length libpath $200;
+            rc = libname('DIAG', libpath);
+            put "Library DIAG path: " libpath;
+            put "Library exists: " (rc=0);
+        run;
+    """)
+    print(f"   SAS output:\n{lib_def}")
+    
+    # 5. Save data
+    print(f"\n5. SAVING DATA to DIAG.{dataset_name}")
+    try:
+        result = sas.df2sd(df_pd.head(100), f'DIAG.{dataset_name}')  # First 100 rows only
+        print(f"   ✓ df2sd completed")
+        print(f"   Returned: {result}")
+    except Exception as e:
+        print(f"   ✗ df2sd failed: {e}")
+    
+    # 6. Verify save
+    print(f"\n6. VERIFYING SAVE")
+    verify = sas.submit(f"""
+        /* Check if dataset exists */
+        %let dsid = %sysfunc(exist(DIAG.{dataset_name}));
+        %if &dsid %then %do;
+            data _null_;
+                put "✓ Dataset DIAG.{dataset_name} EXISTS";
+                
+                /* Get dataset info */
+                proc contents data=DIAG.{dataset_name} out=work.diag_contents;
+                run;
+                
+                data _null_;
+                    set work.diag_contents;
+                    put "  Observations: " nobs;
+                    put "  Variables: " nvar;
+                    put "  File size: " filesize;
+                run;
+                
+                /* Show first 3 rows */
+                proc print data=DIAG.{dataset_name}(obs=3);
+                run;
+            %end;
+        %else %do;
+            data _null_;
+                put "✗ Dataset DIAG.{dataset_name} does NOT exist";
+                
+                /* List what IS in the library */
+                proc datasets library=DIAG;
+                run;
+            %end;
+    """)
+    print(f"   Verification output:\n{verify}")
+    
+    # 7. Alternative: Save to WORK and copy
+    print(f"\n7. ALTERNATIVE: Save to WORK and copy")
+    sas.submit(f"""
+        /* Save to WORK first */
+        data work.{dataset_name}_copy;
+            set DIAG.{dataset_name};
+        run;
+        
+        /* Now copy back to DIAG with different name */
+        data DIAG.{dataset_name}_test;
+            set work.{dataset_name}_copy;
+        run;
+        
+        /* Verify copy */
+        data _null_;
+            if exist('DIAG.{dataset_name}_test') then 
+                put "✓ Copy successful: DIAG.{dataset_name}_test exists";
+        run;
+    """)
+    
+    # 8. File system check after save
+    print(f"\n8. FINAL FILE SYSTEM CHECK")
+    if os.path.exists(library_path):
+        sas_files = glob.glob(os.path.join(library_path, f"*{dataset_name}*.sas7bdat"))
+        print(f"   Files matching *{dataset_name}*.sas7bdat: {len(sas_files)}")
+        for f in sas_files:
+            size = os.path.getsize(f)
+            print(f"   ✓ {os.path.basename(f)} - {size:,} bytes")
+    
+    print("\n" + "=" * 60)
+    print("DIAGNOSTICS COMPLETE")
+    print("=" * 60)
+
+# Usage - replace with your actual values
+diagnose_sas_save(
+    parquet_file="input.parquet",
+    library_path="/data/sas/permanent",
+    dataset_name="users"
+)
